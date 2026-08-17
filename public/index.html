@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sadece İkimiz - Sete Portal</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --bg-main: #0b0f19;
+            --bg-card: #151d2a;
+            --bg-input: #1e293b;
+            --primary: #ec4899;
+            --primary-hover: #db2777;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: #334155;
+            --msg-sent: #be185d;
+            --msg-received: #1e293b;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        body {
+            background: var(--bg-main);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 1rem;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 440px;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .header i {
+            font-size: 2.5rem;
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .header h2 {
+            font-weight: 700;
+            font-size: 1.5rem;
+            letter-spacing: -0.5px;
+        }
+
+        .header p {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            margin-top: 0.25rem;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+            position: relative;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 0.4rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 12px 14px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: var(--bg-input);
+            color: var(--text-main);
+            font-size: 0.95rem;
+            outline: none;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        input:focus, select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.15);
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            border-radius: 10px;
+            border: none;
+            background: var(--primary);
+            color: #fff;
+            font-weight: 600;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: background 0.2s ease, transform 0.1s ease;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+        }
+
+        button:hover {
+            background: var(--primary-hover);
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        /* Eşleşme Ekranı */
+        .code-box {
+            background: var(--bg-input);
+            border: 1px dashed var(--primary);
+            border-radius: 12px;
+            padding: 1rem;
+            text-align: center;
+            margin: 1rem 0;
+        }
+
+        .code-box span {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--primary);
+            letter-spacing: 2px;
+        }
+
+        /* Chat Arayüzü */
+        .chat-card {
+            width: 100%;
+            max-width: 500px;
+            padding: 0;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 80vh;
+            max-height: 650px;
+        }
+
+        .chat-header {
+            padding: 1rem 1.25rem;
+            background: rgba(30, 41, 59, 0.6);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+        }
+
+        .chat-header-info h3 {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .chat-header-info p {
+            font-size: 0.75rem;
+            color: #22c55e;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .chat-header-info p::before {
+            content: '';
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            background: #22c55e;
+            border-radius: 50%;
+        }
+
+        #chatBox {
+            flex: 1;
+            padding: 1.25rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            background: rgba(11, 15, 25, 0.4);
+        }
+
+        .msg {
+            max-width: 75%;
+            padding: 10px 14px;
+            border-radius: 14px;
+            font-size: 0.9rem;
+            line-height: 1.4;
+            word-wrap: break-word;
+            position: relative;
+            animation: fadeIn 0.2s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .sent {
+            background: var(--msg-sent);
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 2px;
+        }
+
+        .received {
+            background: var(--msg-received);
+            color: var(--text-main);
+            align-self: flex-start;
+            border-bottom-left-radius: 2px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .msg-time {
+            font-size: 0.65rem;
+            opacity: 0.7;
+            margin-top: 4px;
+            text-align: right;
+            display: block;
+        }
+
+        .chat-input-area {
+            padding: 1rem;
+            background: var(--bg-card);
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .chat-input-area input {
+            flex: 1;
+            margin: 0;
+        }
+
+        .chat-input-area button {
+            width: auto;
+            padding: 12px 16px;
+            border-radius: 10px;
+        }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- Giriş Ekranı -->
+    <div class="card" id="authCard">
+        <div class="header">
+            <i class="fa-solid fa-heart-pulse"></i>
+            <h2>Sete Sevgili Portalı</h2>
+            <p>Sadece ikinize özel güvenli sohbet alanı</p>
+        </div>
+        
+        <div class="form-group">
+            <label for="authProvider">Platform</label>
+            <select id="authProvider">
+                <option value="nirvanaX">Instagram Hesabı ile Giriş</option>
+                <option value="nirvanaDC">TikTok Hesabı ile Giriş</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="username">Kullanıcı Adı</label>
+            <input type="text" id="username" placeholder="Kullanıcı adınızı girin">
+        </div>
+
+        <div class="form-group">
+            <label for="password">Şifre</label>
+            <input type="password" id="password" placeholder="••••••••">
+        </div>
+
+        <button onclick="login()">
+            <span>Giriş Yap / Kaydol</span>
+            <i class="fa-solid fa-arrow-right"></i>
+        </button>
+    </div>
+
+    <!-- Eşleşme Ekranı -->
+    <div class="card hidden" id="pairCard">
+        <div class="header">
+            <i class="fa-solid fa-link"></i>
+            <h2>Eşleşme Ekranı</h2>
+            <p>Sevgilinizle bağlantı kurun</p>
+        </div>
+
+        <div class="code-box">
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 4px;">Senin Davet Kodun</p>
+            <span id="myCode">LOVE-XXXX</span>
+        </div>
+
+        <div class="form-group">
+            <label for="partnerCode">Sevgilinin Kodu</label>
+            <input type="text" id="partnerCode" placeholder="LOVE-XXXXX">
+        </div>
+
+        <button onclick="pair()">
+            <i class="fa-solid fa-heart"></i>
+            <span>Eşleşmeyi Tamamla</span>
+        </button>
+    </div>
+
+    <!-- Sohbet Ekranı -->
+    <div class="card chat-card hidden" id="chatCard">
+        <div class="chat-header">
+            <div class="avatar" id="partnerAvatar"><i class="fa-solid fa-user"></i></div>
+            <div class="chat-header-info">
+                <h3 id="chatTitle">Sevgilim</h3>
+                <p>Çevrimiçi</p>
+            </div>
+        </div>
+
+        <div id="chatBox"></div>
+
+        <div class="chat-input-area">
+            <input type="text" id="msgInput" placeholder="Mesajınızı yazın..." onkeypress="if(event.key==='Enter') sendMsg()">
+            <button onclick="sendMsg()">
+                <i class="fa-solid fa-paper-plane"></i>
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const socket = io();
+    let currentUser = null;
+
+    async function login() {
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+        const authProvider = document.getElementById('authProvider').value;
+
+        if (!username || !password) {
+            return alert('Lütfen tüm alanları doldurun.');
+        }
+
+        const res = await fetch('/api/auth', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password, authProvider })
+        });
+        const data = await res.json();
+
+        if (data.error) return alert(data.error);
+
+        currentUser = data.user;
+        document.getElementById('authCard').classList.add('hidden');
+
+        if (currentUser.partner_id) {
+            startChat();
+        } else {
+            document.getElementById('pairCard').classList.remove('hidden');
+            document.getElementById('myCode').innerText = currentUser.invite_code;
+        }
+    }
+
+    async function pair() {
+        const inviteCode = document.getElementById('partnerCode').value;
+        if (!inviteCode) return alert('Lütfen eşleşme kodunu girin.');
+
+        const res = await fetch('/api/pair', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: currentUser.id, inviteCode })
+        });
+        const data = await res.json();
+
+        if (data.error) return alert(data.error);
+
+        alert('Eşleşme başarılı!');
+        location.reload();
+    }
+
+    async function startChat() {
+        document.getElementById('chatCard').classList.remove('hidden');
+        socket.emit('join_chat', currentUser.id);
+
+        const res = await fetch(`/api/messages/${currentUser.id}/${currentUser.partner_id}`);
+        const msgs = await res.json();
+        msgs.forEach(appendMessage);
+
+        socket.on('receive_message', (msg) => {
+            appendMessage(msg);
+        });
+    }
+
+    function sendMsg() {
+        const input = document.getElementById('msgInput');
+        if (!input.value.trim()) return;
+
+        socket.emit('send_message', {
+            senderId: currentUser.id,
+            receiverId: currentUser.partner_id,
+            content: input.value
+        });
+        input.value = '';
+    }
+
+    function appendMessage(msg) {
+        const box = document.getElementById('chatBox');
+        const div = document.createElement('div');
+        const isSent = msg.sender_id === currentUser.id;
+        
+        div.classList.add('msg', isSent ? 'sent' : 'received');
+
+        // Saat bilgisini biçimlendirme
+        const time = msg.created_at 
+            ? new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
+            : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+        div.innerHTML = `
+            <div>${escapeHtml(msg.content)}</div>
+            <span class="msg-time">${time}</span>
+        `;
+        
+        box.appendChild(div);
+        box.scrollTop = box.scrollHeight;
+    }
+
+    // XSS Koruması için basit HTML kaçış fonksiyonu
+    function escapeHtml(text) {
+        const map = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        };
+        return text.replace(/[&<>"']/g, m => map[m]);
+    }
+</script>
+</body>
+</html>
