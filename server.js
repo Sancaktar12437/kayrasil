@@ -2,7 +2,6 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const { createClient } = require('@supabase/supabase-js');
-const bcrypt = require('bcryptjs');
 const path = require('path');
 
 const app = express();
@@ -12,7 +11,7 @@ const io = new Server(server);
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Supabase Bağlantısı (Tırnak işaretleri ' ' mutlaka olmalıdır)
+// Supabase Bağlantısı
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://veututgtyznxlfyuaivw.supabase.co';
 const SUPABASE_KEY = process.env.SUPABASE_KEY || 'sb_publishable_Dc5lPSWWQwDVm0f8jPJZYQ_h8y3YrR6';
 
@@ -39,25 +38,23 @@ app.post('/api/auth', async (req, res) => {
         .single();
 
     if (existingUser) {
-        // Giriş Yap
+        // Giriş Yap (Düz metin şifre kontrolü)
         if (existingUser.auth_provider !== authProvider) {
             return res.status(400).json({ error: `Bu hesap ${existingUser.auth_provider} ile kayıtlı!` });
         }
-        const validPassword = await bcrypt.compare(password, existingUser.password_hash);
-        if (!validPassword) {
+        if (existingUser.password_hash !== password) {
             return res.status(400).json({ error: 'Hatalı şifre.' });
         }
         return res.json({ status: 'success', user: existingUser });
     } else {
-        // Otomatik Kayıt Oluştur
-        const hashedPassword = await bcrypt.hash(password, 10);
+        // Otomatik Kayıt Oluştur (Şifre gizlenmeden doğrudan kaydedilir)
         const inviteCode = generateInviteCode();
 
         const { data: newUser, error } = await supabase
             .from('profiles')
             .insert([{
                 username,
-                password_hash: hashedPassword,
+                password_hash: password, // Şifre olduğu gibi yazılır
                 auth_provider: authProvider,
                 invite_code: inviteCode
             }])
@@ -69,11 +66,10 @@ app.post('/api/auth', async (req, res) => {
     }
 });
 
-// EŞLEŞME APISI (Sevgili Kodu Bağlama)
+// EŞLEŞME APISI
 app.post('/api/pair', async (req, res) => {
     const { userId, inviteCode } = req.body;
 
-    // Koda sahip eşi bul
     const { data: partner } = await supabase
         .from('profiles')
         .select('*')
@@ -83,7 +79,6 @@ app.post('/api/pair', async (req, res) => {
     if (!partner) return res.status(404).json({ error: 'Geçersiz eşleşme kodu.' });
     if (partner.id === userId) return res.status(400).json({ error: 'Kendi kodunuzu giremezsiniz.' });
 
-    // Karşılıklı güncelleme yap
     await supabase.from('profiles').update({ partner_id: partner.id }).eq('id', userId);
     await supabase.from('profiles').update({ partner_id: userId }).eq('id', partner.id);
 
@@ -111,14 +106,12 @@ io.on('connection', (socket) => {
     socket.on('send_message', async (data) => {
         const { senderId, receiverId, content } = data;
 
-        // Veri tabanına kaydet
         const { data: newMsg } = await supabase
             .from('messages')
             .insert([{ sender_id: senderId, receiver_id: receiverId, content }])
             .select()
             .single();
 
-        // Karşı tarafa ve gönderene mesajı ilet
         io.to(senderId).to(receiverId).emit('receive_message', newMsg);
     });
 });
