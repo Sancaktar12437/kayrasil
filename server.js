@@ -13,8 +13,8 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Supabase Bağlantısı (Render Environment Variables üzerinden alınacak)
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_KEY = process.env.SUPABASE_KEY;
+const SUPABASE_URL = process.env.https://veututgtyznxlfyuaivw.supabase.co/rest/v1/;
+const SUPABASE_KEY = process.env.sb_publishable_Dc5lPSWWQwDVm0f8jPJZYQ_h8y3YrR6;
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // Rastgele Davet Kodu Üretici
